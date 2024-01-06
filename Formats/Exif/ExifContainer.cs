@@ -61,7 +61,7 @@ namespace Formats.Exif
         public void Read(Stream input)
         {
             using var siphonBlock = SiphonBlock.ByRemain(input);
-            var siphon = siphonBlock.SiphonSteam;
+            var siphon = siphonBlock.SiphonStream;
             var processor = CreateExifProcessor(siphon);
             var signature = processor.ReadBytes(SignatureLength);
 
