@@ -8,6 +8,8 @@ namespace Formats.Exif
 {
     public enum ExifTagId : ushort
     {
+        None = 0x0000,
+
         NewSubfileType = 0x00FE,
         OldSubfileType = 0x00FF,
         ImageWidth = 0x0100,

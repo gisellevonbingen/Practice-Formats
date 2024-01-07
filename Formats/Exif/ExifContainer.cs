@@ -60,72 +60,22 @@ namespace Formats.Exif
 
         public void Read(Stream input)
         {
-            using var siphonBlock = SiphonBlock.ByRemain(input);
-            var siphon = siphonBlock.SiphonStream;
-            var processor = CreateExifProcessor(siphon);
-            var signature = processor.ReadBytes(SignatureLength);
-
-            if (TryGetEndian(signature, out var isLittleEndian) == false)
-            {
-                throw new IOException($"Signature not found");
-            }
-
-            this.WasLittleEndian = isLittleEndian;
-            processor.IsLittleEndian = isLittleEndian;
-            var endianChecker = processor.ReadShort();
-
-            if (endianChecker != EndianChecker)
-            {
-                throw new IOException($"Endian Check Failed : Reading={endianChecker:X4}, Require={EndianChecker:X4}");
-            }
-
             this.Directories.Clear();
-            var ifdOffset = processor.ReadInt();
 
-            while (true)
+            using (var reader = new ExifReader(input))
             {
-                if (ifdOffset == 0)
+                this.WasLittleEndian = reader.IsLittleEndian;
+
+                while (reader.NextDitrectory() == true)
                 {
-                    break;
-                }
+                    var directory = new ExifImageFileDirectory();
+                    this.Directories.Add(directory);
 
-                siphon.Position = ifdOffset;
-
-                var entryCount = processor.ReadShort();
-                var rawEntries = new List<ExifRawEntry>();
-
-                for (var i = 0; i < entryCount; i++)
-                {
-                    var entry = new ExifRawEntry();
-                    entry.ReadInfo(processor);
-                    rawEntries.Add(entry);
-                }
-
-                ifdOffset = processor.ReadInt();
-
-                var directory = new ExifImageFileDirectory();
-                this.Directories.Add(directory);
-
-                foreach (var raw in rawEntries)
-                {
-                    var value = raw.ValueType.ValueGenerator();
-
-                    if (raw.IsOffset == true)
+                    while (reader.NextEntry(out var pair) == true)
                     {
-                        siphon.Position = raw.ValueOrOffset;
-                        value.Read(raw, processor);
-                    }
-                    else
-                    {
-                        using var ms = new MemoryStream();
-                        var entryProcessor = CreateExifProcessor(ms, processor);
-                        entryProcessor.WriteInt(raw.ValueOrOffset);
-
-                        ms.Position = 0L;
-                        value.Read(raw, entryProcessor);
+                        directory.Add(pair.Key, pair.Value);
                     }
 
-                    directory.Add(raw.TagId, value);
                 }
 
             }
